@@ -141,7 +141,7 @@ function generate_nomad_config {
   local readonly config_dir="$4"
   local readonly user="$5"
   local readonly vault_address="$6"
-  local readonly vault_ca_cert="$7"
+  local readonly vault_ca_file="$7"
   shift 7
   local readonly meta=("$@")
   local readonly config_path="$config_dir/$NOMAD_CONFIG_FILE"
@@ -281,6 +281,8 @@ function run {
   local skip_nomad_config="false"
   local use_sudo=""
   local environment=()
+  local vault_address=()
+  local vault_ca_file=()
   local meta=()
   local all_args=()
 
@@ -337,6 +339,16 @@ function run {
       --environment)
         assert_not_empty "$key" "$2"
         environment+=("$2")
+        shift
+        ;;
+      --vault-address)
+        assert_not_empty "$key" "$2"
+        vault_address+=("$2")
+        shift
+        ;;
+      --vault-ca-file)
+        assert_not_empty "$key" "$2"
+        vault_ca_file+=("$2")
         shift
         ;;
       --meta)
@@ -399,7 +411,7 @@ function run {
   if [[ "$skip_nomad_config" == "true" ]]; then
     log_info "The --skip-nomad-config flag is set, so will not generate a default Nomad config file."
   else
-    generate_nomad_config "$server" "$client" "$num_servers" "$config_dir" "$user" "${meta[@]}"
+    generate_nomad_config "$server" "$client" "$num_servers" "$config_dir" "$user" "$vault_address" "$vault_ca_file" "${meta[@]}"
   fi
 
   generate_systemd_config "$SYSTEMD_CONFIG_PATH" "$config_dir" "$data_dir" "$bin_dir" "$user" "$use_sudo" "${environment[@]}"
