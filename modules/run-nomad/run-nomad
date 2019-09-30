@@ -30,6 +30,8 @@ function print_usage {
   echo -e "  --use-sudo\t\tIf set, run the Nomad agent with sudo. By default, sudo is only used if --client is set."
   echo -e "  --environment\t\A single environment variable in the key/value pair form 'KEY=\"val\"' to pass to Nomad as environment variable when starting it up. Repeat this option for additional variables. Optional."
   echo -e "  --skip-nomad-config\tIf this flag is set, don't generate a Nomad configuration file. Optional. Default is false."
+  echo -e "  --vault-address\tIf this is set, generate vault client configuration. Optional"
+  echo -e "  --vault-ca-file\tIf this is set, generate vault client configuration. Optional"
   echo -e "  --meta\t\A single metadata value in the key/value pair form 'KEY=\"val\"' to add to client configuration. Repeat this option for additional metadata. Optional."
   echo
   echo "Example:"
@@ -138,7 +140,9 @@ function generate_nomad_config {
   local readonly num_servers="$3"
   local readonly config_dir="$4"
   local readonly user="$5"
-  shift 5
+  local readonly vault_address="$6"
+  local readonly vault_ca_file="$7"
+  shift 7
   local readonly meta=("$@")
   local readonly config_path="$config_dir/$NOMAD_CONFIG_FILE"
 
@@ -176,6 +180,18 @@ EOF
 )
   fi
 
+  local vault_config=""
+  id [[ "$vault_address" != "" ] && [ "$vault_ca_file" != "" ]; then
+    vault_config=$(cat <<EOF
+vault {
+  enabled = true
+  address = "$vault_address"
+  ca_file = "$vault_ca_file"
+}
+EOF
+)
+  fi
+
   log_info "Creating default Nomad config file in $config_path"
   cat > "$config_path" <<EOF
 datacenter = "$availability_zone"
@@ -196,6 +212,9 @@ $server_config
 consul {
   address = "127.0.0.1:8500"
 }
+
+$vault_config
+
 EOF
   chown "$user:$user" "$config_path"
 }
@@ -262,6 +281,8 @@ function run {
   local skip_nomad_config="false"
   local use_sudo=""
   local environment=()
+  local vault_address=()
+  local vault_ca_file=()
   local meta=()
   local all_args=()
 
@@ -318,6 +339,16 @@ function run {
       --environment)
         assert_not_empty "$key" "$2"
         environment+=("$2")
+        shift
+        ;;
+      --vault-address)
+        assert_not_empty "$key" "$2"
+        vault_address+=("$2")
+        shift
+        ;;
+      --vault-ca-file)
+        assert_not_empty "$key" "$2"
+        vault_ca_file+=("$2")
         shift
         ;;
       --meta)
@@ -380,7 +411,7 @@ function run {
   if [[ "$skip_nomad_config" == "true" ]]; then
     log_info "The --skip-nomad-config flag is set, so will not generate a default Nomad config file."
   else
-    generate_nomad_config "$server" "$client" "$num_servers" "$config_dir" "$user" "${meta[@]}"
+    generate_nomad_config "$server" "$client" "$num_servers" "$config_dir" "$user" "$vault_address" "$vault_ca_file" "${meta[@]}"
   fi
 
   generate_systemd_config "$SYSTEMD_CONFIG_PATH" "$config_dir" "$data_dir" "$bin_dir" "$user" "$use_sudo" "${environment[@]}"
