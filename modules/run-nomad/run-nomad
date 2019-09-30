@@ -181,7 +181,7 @@ EOF
   fi
 
   local vault_config=""
-  if [[ "$vault_address" != "" ] && [ "$vault_ca_file" != "" ]]; then
+  if [ "$vault_address" != "" ] && [ "$vault_ca_file" != "" ]; then
     vault_config=$(cat <<EOF
 vault {
   enabled = true
